@@ -8,6 +8,9 @@ on:
   schedule:
     - cron: "*/15 11-23,0-3 * * *"
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/watch.yml", "monitor.py", "config.example.json"]
 
 concurrency:
   group: iphone-duo-watch
@@ -25,6 +28,6 @@ jobs:
       - name: Monitorar (1 checagem por minuto)
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-          ANNOUNCE_START: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
+          ANNOUNCE_START: ${{ github.event_name != 'schedule' && '1' || '0' }}
           PYTHONUNBUFFERED: "1"
         run: python monitor.py --duration-minutes 345
