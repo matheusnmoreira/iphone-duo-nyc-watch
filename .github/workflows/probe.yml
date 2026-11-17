@@ -17,13 +17,8 @@ jobs:
           curl -s -A "$UA" -H "Accept-Language: en-US" "https://www.apple.com/shop/retail/pickup-message?location=10001$Q" > pm.json
           python3 - <<'PY'
           import json
-          d=json.load(open("pm.json")); b=d.get("body",{})
-          print("keys body:", list(b.keys())[:15])
-          st=b.get("stores",[])
-          print("stores:", len(st))
-          if st:
-              s=st[0]; print("store keys:", list(s.keys()))
-              for p,i in (s.get("partsAvailability") or {}).items():
-                  print(p, {k:i.get(k) for k in ("pickupDisplay","storePickupProductTitle","pickupSearchQuote","storePickupQuote")}, list(i.keys()))
-              for s in st[:12]: print(s.get("storeName"), s.get("storeNumber"), s.get("storedistance"), s.get("storeDistanceWithUnit"))
+          d=json.load(open("pm.json")); st=d["body"]["stores"]
+          for p,i in st[0]["partsAvailability"].items():
+              print(p, json.dumps(i.get("messageTypes"))[:400])
+          print("state:", sorted({(s.get("state"), s.get("city")) for s in st}))
           PY
