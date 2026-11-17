@@ -26,7 +26,8 @@ import time
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, time as dtime
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -90,6 +91,8 @@ def load_config(path: Path) -> dict:
     cfg.setdefault("interval_seconds", 30)
     cfg.setdefault("title_must_include", [])
     cfg.setdefault("states", ["NY"])
+    cfg.setdefault("cities", [])
+    cfg.setdefault("active_hours", {})
     cfg.setdefault("title_must_include_any", [])
     cfg.setdefault("notify", {})
     cfg["interval_seconds"] = max(int(cfg["interval_seconds"]), MIN_INTERVAL)
@@ -173,6 +176,7 @@ def parse_availability(payload: dict, cfg: dict) -> list[Hit]:
     """Transforma a resposta JSON da Apple em uma lista de lojas com estoque."""
     stores = _stores(payload)
     states = [x.upper() for x in cfg.get("states", [])]
+    cities = [x.lower() for x in cfg.get("cities", [])]
     allow = [s.lower() for s in cfg.get("store_allowlist", [])]
     max_dist = float(cfg.get("max_distance_miles", 15))
     hits: list[Hit] = []
@@ -184,6 +188,8 @@ def parse_availability(payload: dict, cfg: dict) -> list[Hit]:
         if not allow and _distance(store) > max_dist:
             continue
         if states and str(store.get("state", "")).upper() not in states:
+            continue
+        if cities and str(store.get("city", "")).lower() not in cities:
             continue
         for part, info in (store.get("partsAvailability") or {}).items():
             if part not in cfg["parts"]:
@@ -326,6 +332,18 @@ def ensure_parts(cfg: dict) -> None:
         raise RuntimeError(f"nenhum modelo bateu com o filtro ({len(parts)} parts lidos, {len(titles)} com nome)")
 
 
+def within_active_hours(cfg: dict, now: datetime | None = None) -> bool:
+    """True se estamos dentro do horario configurado (ex.: 07:00 a 22:00 de Nova York)."""
+    ah = cfg.get("active_hours") or {}
+    if not ah:
+        return True
+    tz = ZoneInfo(ah.get("tz", "America/New_York"))
+    now = (now or datetime.now(tz)).astimezone(tz)
+    start = dtime.fromisoformat(ah.get("start", "00:00"))
+    end = dtime.fromisoformat(ah.get("end", "23:59"))
+    return start <= now.time() < end
+
+
 # --------------------------------------------------------------------------- estado
 
 def load_seen() -> set[str]:
@@ -342,6 +360,9 @@ def save_seen(keys: set[str]) -> None:
 # --------------------------------------------------------------------------- loop
 
 def run(cfg: dict, once: bool, duration_minutes: float = 0) -> None:
+    if not within_active_hours(cfg):
+        log("Fora do horario de monitoramento. Encerrando.")
+        return
     seen = load_seen()
     backoff = 0
     errors_in_row = 0
@@ -386,7 +407,7 @@ def run(cfg: dict, once: bool, duration_minutes: float = 0) -> None:
             if errors_in_row == 10:
                 push_info(cfg, "Monitor iPhone Duo com problema",
                           f"10 erros seguidos consultando a Apple. Ultimo: {exc}", urgent=True)
-        if once or (deadline and time.time() >= deadline):
+        if once or (deadline and time.time() >= deadline) or not within_active_hours(cfg):
             log("Fim do ciclo.")
             return
         wait = cfg["interval_seconds"] * (2 ** backoff if backoff else 1)

@@ -1,6 +1,6 @@
 # iPhone Duo NYC Watch
 
-Monitora a cada 30 segundos a disponibilidade de **retirada na loja (Pickup)** do **iPhone Duo Night Sky 256GB ou 512GB** nas Apple Stores de Nova York e alerta na hora em que aparecer estoque.
+Monitora uma vez por minuto, das 7h às 22h de Nova York, a disponibilidade de **retirada na loja (Pickup)** do **iPhone Duo Night Sky 256GB ou 512GB** nas Apple Stores de Manhattan e Brooklyn e alerta na hora em que aparecer estoque.
 
 Quando surgir estoque, o script:
 1. Toca um bip insistente no terminal e mostra loja, modelo e prazo de retirada.
@@ -47,7 +47,9 @@ python monitor.py
 | `zip` | CEP de referência. `10001` = Midtown Manhattan |
 | `max_distance_miles` | Raio das lojas monitoradas (15 mi cobre Manhattan, Brooklyn e Queens) |
 | `store_allowlist` | Se preenchido, monitora só essas lojas (ex.: `["Fifth Avenue", "SoHo"]`) e ignora o raio |
-| `interval_seconds` | Intervalo entre checagens. Padrão 30 (duas por minuto). Mínimo 20 |
+| `interval_seconds` | Intervalo entre checagens. Padrão 60 (uma por minuto). Mínimo 20 |
+| `active_hours` | Janela diária de monitoramento no fuso de Nova York (padrão 07:00 a 22:00) |
+| `states` / `cities` | Filtro de lojas. Padrão: estado `NY`, cidades `New York` (Manhattan) e `Brooklyn`. Para incluir Queens e Bronx, adicione `Elmhurst` e `Bronx` |
 | `title_must_include` | Termos obrigatórios no nome do modelo (`Night Sky`) |
 | `title_must_include_any` | Pelo menos um destes (`256GB`, `512GB`) |
 | `parts` | Part numbers monitorados (preenchido pelo `--discover --write`) |

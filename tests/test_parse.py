@@ -17,6 +17,7 @@ PAYLOAD = {
                     {
                         "storeName": "Fifth Avenue",
                         "state": "NY",
+                        "city": "New York",
                         "storeNumber": "R095",
                         "storedistance": 0.9,
                         "storeDistanceWithUnit": "0.9 mi",
@@ -81,3 +82,23 @@ def test_parse_applies_title_filter():
 def test_state_filter_excludes_nj():
     cfg = {**CFG, "max_distance_miles": 50, "states": ["NY"]}
     assert [h.store for h in parse_availability(PAYLOAD, cfg)] == ["Fifth Avenue"]
+
+
+def test_city_filter_only_manhattan():
+    cfg = {**CFG, "states": ["NY"], "cities": ["Brooklyn"]}
+    assert parse_availability(PAYLOAD, cfg) == []
+    cfg = {**CFG, "states": ["NY"], "cities": ["New York"]}
+    assert [h.store for h in parse_availability(PAYLOAD, cfg)] == ["Fifth Avenue"]
+
+
+def test_active_hours_new_york():
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from monitor import within_active_hours
+    cfg = {"active_hours": {"start": "07:00", "end": "22:00", "tz": "America/New_York"}}
+    ny = ZoneInfo("America/New_York")
+    assert within_active_hours(cfg, datetime(2026, 11, 18, 7, 0, tzinfo=ny))
+    assert within_active_hours(cfg, datetime(2026, 11, 18, 21, 59, tzinfo=ny))
+    assert not within_active_hours(cfg, datetime(2026, 11, 18, 22, 0, tzinfo=ny))
+    assert not within_active_hours(cfg, datetime(2026, 11, 18, 3, 0, tzinfo=ny))
+    assert within_active_hours({}, datetime(2026, 11, 18, 3, 0, tzinfo=ny))

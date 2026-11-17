@@ -1,11 +1,12 @@
 name: iPhone Duo watch
 
-# Roda o monitor na nuvem, 24h por dia, sem precisar de computador.
-# Cada execucao dura ~5h45; o agendamento abaixo enfileira a proxima,
-# que comeca assim que a anterior termina (concurrency sem cancelamento).
+# Roda o monitor na nuvem, sem precisar de computador, das 07:00 as 22:00 de Nova York.
+# O horario exato e controlado pelo proprio monitor (active_hours no config, com horario de verao).
+# O agendamento (UTC) cobre a janela; cada execucao dura ate ~5h45 e a proxima
+# comeca assim que a anterior termina (concurrency sem cancelamento).
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "*/15 11-23,0-3 * * *"
   workflow_dispatch:
 
 concurrency:
@@ -21,7 +22,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Monitorar (30s entre checagens)
+      - name: Monitorar (1 checagem por minuto)
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           ANNOUNCE_START: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
