@@ -98,6 +98,9 @@ def load_config(path: Path) -> dict:
     cfg["interval_seconds"] = max(int(cfg["interval_seconds"]), MIN_INTERVAL)
     if os.environ.get("NTFY_TOPIC"):
         cfg["notify"]["ntfy_topic"] = os.environ["NTFY_TOPIC"]
+    # Remove espacos, quebras de linha e caracteres invisiveis que vem junto ao colar no celular
+    topic = cfg["notify"].get("ntfy_topic") or ""
+    cfg["notify"]["ntfy_topic"] = re.sub(r"[^A-Za-z0-9_-]", "", topic)
     if IN_CI:  # na nuvem nao existe tela nem navegador
         cfg["notify"]["desktop"] = False
         cfg["notify"]["open_bag_in_browser"] = False
@@ -311,7 +314,7 @@ def push_info(cfg: dict, title: str, body: str, urgent: bool = False) -> None:
         req = urllib.request.Request(
             f"https://ntfy.sh/{urllib.parse.quote(topic)}",
             data=body.encode("utf-8"),
-            headers={"Title": title, "Priority": "high" if urgent else "low", "Tags": "gear"},
+            headers={"Title": title, "Priority": "high" if urgent else "default", "Tags": "gear"},
             method="POST",
         )
         urllib.request.urlopen(req, timeout=15).read()

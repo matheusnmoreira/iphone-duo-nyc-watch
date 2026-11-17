@@ -102,3 +102,12 @@ def test_active_hours_new_york():
     assert not within_active_hours(cfg, datetime(2026, 11, 18, 22, 0, tzinfo=ny))
     assert not within_active_hours(cfg, datetime(2026, 11, 18, 3, 0, tzinfo=ny))
     assert within_active_hours({}, datetime(2026, 11, 18, 3, 0, tzinfo=ny))
+
+
+def test_ntfy_topic_is_sanitized(tmp_path, monkeypatch):
+    import json
+    from monitor import load_config
+    cfg_file = tmp_path / "c.json"
+    cfg_file.write_text(json.dumps({"parts": {}, "notify": {}}))
+    monkeypatch.setenv("NTFY_TOPIC", "duo-nyc-7q4m9x\n")
+    assert load_config(cfg_file)["notify"]["ntfy_topic"] == "duo-nyc-7q4m9x"

@@ -13,7 +13,7 @@ on:
     paths: [".github/workflows/watch.yml", "monitor.py", "config.example.json"]
 
 concurrency:
-  group: iphone-duo-watch
+  group: iphone-duo-watch-v2
   cancel-in-progress: false
 
 jobs:
