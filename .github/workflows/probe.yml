@@ -6,8 +6,24 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Testar acesso a Apple
+      - name: Testar descoberta
         run: |
           UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
-          for u in "https://www.apple.com/" "https://www.apple.com/shop/buy-iphone/iphone-duo" "https://www.apple.com/shop/fulfillment-messages?pl=true&mts.0=regular&parts.0=MG8H4LL/A&location=10001" "https://www.apple.com/shop/retail/pickup-message?parts.0=MG8H4LL/A&location=10001"; do
-            code=$(curl -s -o /tmp/out -w "%{http_code}" -A "$UA" -H "Accept-Language: en-US" "$u"); echo "$code $u"; head -c 200 /tmp/out; echo; done
+          curl -s -A "$UA" -H "Accept-Language: en-US" "https://www.apple.com/shop/buy-iphone/iphone-duo" > page.html
+          wc -c page.html
+          PARTS=$(grep -oE '\b[A-Z0-9]{5}LL/A\b' page.html | sort -u)
+          echo "PARTS: $(echo $PARTS | wc -w)"; echo $PARTS
+          Q=""; i=0; for p in $(echo $PARTS | tr ' ' '\n' | head -8); do Q="$Q&parts.$i=$p"; i=$((i+1)); done
+          curl -s -A "$UA" -H "Accept-Language: en-US" "https://www.apple.com/shop/retail/pickup-message?location=10001$Q" > pm.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open("pm.json")); b=d.get("body",{})
+          print("keys body:", list(b.keys())[:15])
+          st=b.get("stores",[])
+          print("stores:", len(st))
+          if st:
+              s=st[0]; print("store keys:", list(s.keys()))
+              for p,i in (s.get("partsAvailability") or {}).items():
+                  print(p, {k:i.get(k) for k in ("pickupDisplay","storePickupProductTitle","pickupSearchQuote","storePickupQuote")}, list(i.keys()))
+              for s in st[:12]: print(s.get("storeName"), s.get("storeNumber"), s.get("storedistance"), s.get("storeDistanceWithUnit"))
+          PY
