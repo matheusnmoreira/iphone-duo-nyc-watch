@@ -13,11 +13,10 @@ CFG = {
 
 PAYLOAD = {
     "body": {
-        "content": {
-            "pickupMessage": {
-                "stores": [
+        "stores": [
                     {
                         "storeName": "Fifth Avenue",
+                        "state": "NY",
                         "storeNumber": "R095",
                         "storedistance": 0.9,
                         "storeDistanceWithUnit": "0.9 mi",
@@ -32,14 +31,13 @@ PAYLOAD = {
                     },
                     {
                         "storeName": "Short Hills",
+                        "state": "NJ",
                         "storeNumber": "R999",
                         "storedistance": 22.0,
                         "storeDistanceWithUnit": "22.0 mi",
                         "partsAvailability": {"AAAAALL/A": {"pickupDisplay": "available"}},
                     },
-                ]
-            }
-        }
+        ]
     }
 }
 
@@ -52,7 +50,7 @@ def test_filters_by_distance_and_availability():
 
 
 def test_allowlist_overrides_distance():
-    cfg = {**CFG, "store_allowlist": ["short hills"]}
+    cfg = {**CFG, "store_allowlist": ["short hills"], "states": []}
     hits = parse_availability(PAYLOAD, cfg)
     assert [h.store for h in hits] == ["Short Hills"]
 
@@ -78,3 +76,8 @@ def test_title_filter_night_sky_256_512():
 def test_parse_applies_title_filter():
     cfg = {**CFG, "title_must_include": ["Night Sky"]}
     assert parse_availability(PAYLOAD, cfg) == []  # titulo do fixture nao tem Night Sky
+
+
+def test_state_filter_excludes_nj():
+    cfg = {**CFG, "max_distance_miles": 50, "states": ["NY"]}
+    assert [h.store for h in parse_availability(PAYLOAD, cfg)] == ["Fifth Avenue"]

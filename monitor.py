@@ -19,6 +19,7 @@ import os
 import platform
 import random
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -33,7 +34,7 @@ CONFIG_PATH = ROOT / "config.json"
 EXAMPLE_CONFIG_PATH = ROOT / "config.example.json"
 STATE_PATH = ROOT / ".last_seen.json"
 
-FULFILLMENT_URL = "https://www.apple.com/shop/fulfillment-messages"
+FULFILLMENT_URL = "https://www.apple.com/shop/retail/pickup-message"  # o fulfillment-messages bloqueia servidores (HTTP 541)
 DEFAULT_BUY_URL = "https://www.apple.com/shop/buy-iphone/iphone-duo"
 DEFAULT_BAG_URL = "https://www.apple.com/shop/bag"  # carrinho da Apple
 MIN_INTERVAL = 20  # segundos; abaixo disso a Apple tende a bloquear
@@ -60,6 +61,15 @@ def log(msg: str) -> None:
 
 
 def http_get(url: str, timeout: int = 20) -> str:
+    # Usa curl quando disponivel: a Apple recusa (HTTP 541) a assinatura de conexao do urllib.
+    if shutil.which("curl"):
+        cmd = ["curl", "-sS", "--compressed", "-f", "--max-time", str(timeout)]
+        for k, v in HEADERS.items():
+            cmd += ["-H", f"{k}: {v}"]
+        res = subprocess.run(cmd + [url], capture_output=True, text=True)
+        if res.returncode != 0:
+            raise RuntimeError(f"curl falhou: {res.stderr.strip()[:200]}")
+        return res.stdout
     req = urllib.request.Request(url, headers=HEADERS)
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return resp.read().decode("utf-8", errors="replace")
@@ -79,6 +89,7 @@ def load_config(path: Path) -> dict:
     cfg.setdefault("store_allowlist", [])
     cfg.setdefault("interval_seconds", 30)
     cfg.setdefault("title_must_include", [])
+    cfg.setdefault("states", ["NY"])
     cfg.setdefault("title_must_include_any", [])
     cfg.setdefault("notify", {})
     cfg["interval_seconds"] = max(int(cfg["interval_seconds"]), MIN_INTERVAL)
@@ -111,8 +122,7 @@ def titles_for_parts(parts: list[str], zip_code: str) -> dict[str, str]:
     titles: dict[str, str] = {}
     for i in range(0, len(parts), 8):
         payload = json.loads(http_get(build_url(parts[i : i + 8], zip_code)))
-        stores = payload.get("body", {}).get("content", {}).get("pickupMessage", {}).get("stores", [])
-        for store in stores:
+        for store in _stores(payload):
             for part, info in (store.get("partsAvailability") or {}).items():
                 t = info.get("messageTypes", {}).get("regular", {}).get("storePickupProductTitle")
                 if t:
@@ -138,7 +148,7 @@ class Hit:
 
 
 def build_url(parts: list[str], zip_code: str) -> str:
-    params: dict[str, str] = {"pl": "true", "mts.0": "regular", "location": zip_code}
+    params: dict[str, str] = {"location": zip_code}
     for i, part in enumerate(parts):
         params[f"parts.{i}"] = part
     return f"{FULFILLMENT_URL}?{urllib.parse.urlencode(params)}"
@@ -154,14 +164,15 @@ def _distance(store: dict) -> float:
         return float(m.group()) if m else 0.0
 
 
+def _stores(payload: dict) -> list:
+    body = payload.get("body", {})
+    return body.get("stores") or body.get("content", {}).get("pickupMessage", {}).get("stores", []) or []
+
+
 def parse_availability(payload: dict, cfg: dict) -> list[Hit]:
     """Transforma a resposta JSON da Apple em uma lista de lojas com estoque."""
-    stores = (
-        payload.get("body", {})
-        .get("content", {})
-        .get("pickupMessage", {})
-        .get("stores", [])
-    )
+    stores = _stores(payload)
+    states = [x.upper() for x in cfg.get("states", [])]
     allow = [s.lower() for s in cfg.get("store_allowlist", [])]
     max_dist = float(cfg.get("max_distance_miles", 15))
     hits: list[Hit] = []
@@ -171,6 +182,8 @@ def parse_availability(payload: dict, cfg: dict) -> list[Hit]:
         if allow and not any(a in name.lower() for a in allow):
             continue
         if not allow and _distance(store) > max_dist:
+            continue
+        if states and str(store.get("state", "")).upper() not in states:
             continue
         for part, info in (store.get("partsAvailability") or {}).items():
             if part not in cfg["parts"]:

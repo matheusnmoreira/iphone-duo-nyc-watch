@@ -1,6 +1,9 @@
 {
   "zip": "10001",
   "max_distance_miles": 15,
+  "states": [
+    "NY"
+  ],
   "store_allowlist": [],
   "interval_seconds": 30,
   "buy_url": "https://www.apple.com/shop/buy-iphone/iphone-duo",
@@ -12,7 +15,10 @@
     "256GB",
     "512GB"
   ],
-  "parts": {},
+  "parts": {
+    "MK1F4LL/A": "iPhone Duo 256GB Night Sky",
+    "MK1H4LL/A": "iPhone Duo 512GB Night Sky"
+  },
   "notify": {
     "desktop": true,
     "open_bag_in_browser": true,
