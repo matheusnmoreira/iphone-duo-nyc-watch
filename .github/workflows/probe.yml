@@ -1,0 +1,13 @@
+name: probe apple
+on:
+  push:
+    paths: [".github/workflows/probe.yml"]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Testar acesso a Apple
+        run: |
+          UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
+          for u in "https://www.apple.com/" "https://www.apple.com/shop/buy-iphone/iphone-duo" "https://www.apple.com/shop/fulfillment-messages?pl=true&mts.0=regular&parts.0=MG8H4LL/A&location=10001" "https://www.apple.com/shop/retail/pickup-message?parts.0=MG8H4LL/A&location=10001"; do
+            code=$(curl -s -o /tmp/out -w "%{http_code}" -A "$UA" -H "Accept-Language: en-US" "$u"); echo "$code $u"; head -c 200 /tmp/out; echo; done
