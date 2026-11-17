@@ -16,9 +16,13 @@ jobs:
           Q=""; i=0; for p in $(echo $PARTS | tr ' ' '\n' | head -8); do Q="$Q&parts.$i=$p"; i=$((i+1)); done
           curl -s -A "$UA" -H "Accept-Language: en-US" "https://www.apple.com/shop/retail/pickup-message?location=10001$Q" > pm.json
           python3 - <<'PY'
-          import json
+          import json, re
           d=json.load(open("pm.json")); st=d["body"]["stores"]
           for p,i in st[0]["partsAvailability"].items():
-              print(p, json.dumps(i.get("messageTypes"))[:400])
-          print("state:", sorted({(s.get("state"), s.get("city")) for s in st}))
+              r=i.get("messageTypes",{}).get("regular",{})
+              print("T", p, r.get("storePickupProductTitle"), "|", [k for k in r if "itle" in k or "roduct" in k])
+          html=open("page.html").read()
+          for p in ["MK1E4LL/A","MK1F4LL/A"]:
+              for m in list(re.finditer(re.escape(p), html))[:3]:
+                  print("C", p, re.sub(r"\s+"," ",html[max(0,m.start()-250):m.end()+150]))
           PY
