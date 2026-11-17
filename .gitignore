@@ -1,0 +1,6 @@
+config.json
+.last_seen.json
+__pycache__/
+.pytest_cache/
+.venv/
+*.log

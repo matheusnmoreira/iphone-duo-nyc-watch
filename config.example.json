@@ -1,0 +1,23 @@
+{
+  "zip": "10001",
+  "max_distance_miles": 15,
+  "store_allowlist": [],
+  "interval_seconds": 30,
+  "buy_url": "https://www.apple.com/shop/buy-iphone/iphone-duo",
+  "bag_url": "https://www.apple.com/shop/bag",
+  "title_must_include": [
+    "Night Sky"
+  ],
+  "title_must_include_any": [
+    "256GB",
+    "512GB"
+  ],
+  "parts": {},
+  "notify": {
+    "desktop": true,
+    "open_bag_in_browser": true,
+    "ntfy_topic": "",
+    "telegram_bot_token": "",
+    "telegram_chat_id": ""
+  }
+}
