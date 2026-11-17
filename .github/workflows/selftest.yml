@@ -1,0 +1,18 @@
+name: selftest
+on:
+  push:
+    paths: [".github/workflows/selftest.yml"]
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Diagnostico ntfy
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          echo "segredo cadastrado: ${{ secrets.NTFY_TOPIC != '' }}"
+          echo "tamanho: ${#NTFY_TOPIC}"
+          echo "tem espaco/quebra: $(printf %s "$NTFY_TOPIC" | grep -c '[[:space:]]')"
+          echo "hash do segredo: $(printf %s "$NTFY_TOPIC" | sha256sum | cut -c1-12)  (sugerido: 29135481ad16)"
+          echo "--- envio de teste ---"
+          curl -sS -w "\nHTTP %{http_code}\n" -H "Title: Teste do monitor iPhone Duo" -H "Priority: high" -d "Se voce recebeu isto, o alerta esta funcionando." "https://ntfy.sh/$NTFY_TOPIC" | sed -E 's/"topic":"[^"]*"/"topic":"***"/'
