@@ -1,0 +1,28 @@
+name: selftest
+on:
+  push:
+    paths: [".github/workflows/selftest.yml"]
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Teste ntfy pelo GitHub
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          python3 - <<'PY'
+          import os, re, urllib.request
+          raw = os.environ.get("NTFY_TOPIC", "")
+          clean = re.sub(r"[^A-Za-z0-9_-]", "", raw)
+          print("tamanho bruto:", len(raw), "| limpo:", len(clean), "| igual ao sugerido:", clean == "duo-nyc-7q4m9x")
+          req = urllib.request.Request("https://ntfy.sh/" + clean,
+              data="Teste enviado pelo GitHub. Se chegou, o alerta de estoque vai chegar.".encode(),
+              headers={"Title": "Teste do monitor iPhone Duo", "Priority": "high", "Click": "https://www.apple.com/shop/bag"},
+              method="POST")
+          try:
+              r = urllib.request.urlopen(req, timeout=15); body = r.read().decode()
+              print("HTTP", r.status, re.sub(r'"topic":"[^"]*"', '"topic":"***"', body))
+          except Exception as e:
+              print("ERRO:", e)
+          PY
