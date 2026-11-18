@@ -363,13 +363,21 @@ def save_seen(keys: set[str]) -> None:
 # --------------------------------------------------------------------------- loop
 
 def run(cfg: dict, once: bool, duration_minutes: float = 0) -> None:
+    deadline = time.time() + duration_minutes * 60 if duration_minutes else None
     if not within_active_hours(cfg):
-        log("Fora do horario de monitoramento. Encerrando.")
-        return
+        if once or not deadline:
+            log("Fora do horario de monitoramento. Encerrando.")
+            return
+        log("Fora do horario de monitoramento. Aguardando a abertura da janela ...")
+        while not within_active_hours(cfg):
+            if time.time() >= deadline:
+                log("Fim do ciclo (fora do horario).")
+                return
+            time.sleep(60)
+        log("Janela aberta. Iniciando checagens.")
     seen = load_seen()
     backoff = 0
     errors_in_row = 0
-    deadline = time.time() + duration_minutes * 60 if duration_minutes else None
     for attempt in range(5):
         try:
             ensure_parts(cfg)
@@ -410,9 +418,21 @@ def run(cfg: dict, once: bool, duration_minutes: float = 0) -> None:
             if errors_in_row == 10:
                 push_info(cfg, "Monitor iPhone Duo com problema",
                           f"10 erros seguidos consultando a Apple. Ultimo: {exc}", urgent=True)
-        if once or (deadline and time.time() >= deadline) or not within_active_hours(cfg):
+        if once or (deadline and time.time() >= deadline):
             log("Fim do ciclo.")
             return
+        if not within_active_hours(cfg):
+            if not deadline:
+                log("Fim do horario de monitoramento.")
+                return
+            log("Fim do horario de hoje. Aguardando a proxima janela ...")
+            while not within_active_hours(cfg):
+                if time.time() >= deadline:
+                    log("Fim do ciclo (fora do horario).")
+                    return
+                time.sleep(60)
+            log("Janela aberta. Retomando checagens.")
+            continue
         wait = cfg["interval_seconds"] * (2 ** backoff if backoff else 1)
         time.sleep(min(wait, MAX_BACKOFF) + random.uniform(-2, 2))
 

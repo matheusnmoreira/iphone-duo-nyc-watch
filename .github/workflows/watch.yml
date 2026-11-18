@@ -1,12 +1,13 @@
 name: iPhone Duo watch
 
 # Roda o monitor na nuvem, sem precisar de computador, das 07:00 as 22:00 de Nova York.
-# O horario exato e controlado pelo proprio monitor (active_hours no config, com horario de verao).
-# O agendamento (UTC) cobre a janela; cada execucao dura ate ~5h45 e a proxima
-# comeca assim que a anterior termina (concurrency sem cancelamento).
+# O horario exato e controlado pelo proprio monitor (active_hours no config, com horario de verao);
+# fora da janela ele fica aguardando em vez de encerrar.
+# Cada execucao dura ate ~5h45 e, ao terminar, dispara a proxima sozinha (passo "Religar").
+# O agendamento abaixo e so uma rede de seguranca: o GitHub dispara cron de forma irregular.
 on:
   schedule:
-    - cron: "*/15 11-23,0-3 * * *"
+    - cron: "*/30 * * * *"
   workflow_dispatch:
   push:
     branches: [main]
@@ -15,6 +16,10 @@ on:
 concurrency:
   group: iphone-duo-watch-v2
   cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: write
 
 jobs:
   watch:
@@ -28,6 +33,14 @@ jobs:
       - name: Monitorar (1 checagem por minuto)
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-          ANNOUNCE_START: ${{ github.event_name != 'schedule' && '1' || '0' }}
+          ANNOUNCE_START: ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.triggering_actor != 'github-actions[bot]')) && '1' || '0' }}
           PYTHONUNBUFFERED: "1"
         run: python monitor.py --duration-minutes 345
+      - name: Religar (proximo ciclo)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Se o ciclo falhou rapido, espera um pouco para nao entrar em loop
+          if [ "${{ job.status }}" != "success" ]; then sleep 120; fi
+          gh workflow run "${{ github.workflow }}" --ref main -R "${{ github.repository }}"
